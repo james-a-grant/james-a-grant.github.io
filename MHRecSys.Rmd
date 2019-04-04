@@ -1,0 +1,483 @@
+---
+title: "Recommender System Example"
+author: "James A. Grant"
+output:
+  html_document:
+    self_contained: no
+    code_folding: "hide"
+  pdf_document: default
+---
+
+```{r include=FALSE}
+#Load required packages and create functions
+library(MASS)                # R package for MV-Normal simulation
+library(recosystem)          # R package for matrix factorization (A RecSys Alg)
+library(Metrics)             # R package for success measures
+library(ggplot2)             # R package for nice plots
+library(reshape2)            # R package for making data frames quickly   
+library(evaluate)
+
+sigmoid <- function(x){
+  return(1/(1+exp(-x)))
+}                            # Sigmoidal (AKA logistic) transformation
+
+```
+
+We first set a number of items, $I$, and a number of users, $U$, 
+and decide how many items each user will have rated.
+The more items have been rated, the easier the unobserved ratings should be 
+to infer.
+```{r}
+n.items    <- 40             # Number of items
+n.users    <- 100            # Number of users
+n.initial  <- 10             # Number of initial ratings (less than n.items)
+```
+
+We want to test how well a recommender system can detect some structure in the
+ratings of a population - i.e. how it can pick up similarities and patterns in 
+the preferences of users. To assess this we will build a simple dataset that we 
+know has some such structure in it, and therefore something that we may expect a
+reasonable method to be able to predict.
+
+Each user $u=1,...,U$ assigns a rating $R_{ui}$ to each item $i=1,...,I$.
+The higher the rating, the more the user "likes" the item. We assume that 
+ratings are generated from a linear model based on attributes of the users, 
+and of the items. 
+
+In particular, we assume that a user $u$ has two relevant 
+binary attributes $\beta_{u,1},\beta_{u,2}$ which each are coded as 1 or -1. 
+These could be things like whether they are over/under 25 years of age or their 
+sex.
+
+Each item has two relevant attributes $\gamma_{i,1}, \gamma_{i,2}$ which take 
+continuous values. These could be measures of things like how well a story 
+captures the experiences of a particular sex or how relevant it is to 
+younger people versus older people.
+
+We then assume that the rating user $u$ gives to item $i$ is determined by 
+$\beta_{u,1}\gamma_{i,1}+\beta_{u,2}\gamma_{i,2}$ plus some Gaussian noise. We 
+finally apply a transformation to these random values to get ratings on the [0,1]
+scale.
+
+The code below generates a set of ratings, based on equal representation of users
+across four groups (based on their $\beta$ covariates).
+```{r}
+# Create users from four populations (AA, AB, BA, BB)
+user.covariates <- matrix(c(rep(1,n.users/2),rep(-1,n.users/2),
+                            rep(1,n.users/4),rep(-1,n.users/4),
+                            rep(1,n.users/4),rep(-1,n.users/4)),
+                            ncol=2,byrow=F)
+# Create items with two numeric characteristics
+item.covariates <- matrix(c(rnorm(2*n.items,0,1)),ncol=2,byrow=F)
+
+sig        <- 0.1              # Ratings variance
+# Generate Gaussian ratings
+true.ratings <- matrix(nrow=n.users,ncol=n.items)
+for (i in 1:n.users){
+  for (j in 1:n.items){
+    true.ratings[i,j] <- rnorm(1,t(item.covariates[j,])%*%user.covariates[i,],
+                               sig)
+  }
+}
+# Transform to [0,1] scale
+true.ratings <- apply(true.ratings,2,sigmoid)
+
+```
+
+We plot these ratings below in a heatmap - here darker colours represent higher
+ratings. Items are on the horizontal axis and users are on the vertical axis. The
+similarities within the groups, and the differences across them are quite clear.
+
+```{r include=FALSE}
+# Visualise true ratings
+yy     <- as.data.frame(true.ratings)
+names(yy) <- c(1:n.items)
+yy$rowname <- c(1:n.users)
+yy <- melt(yy,id="rowname")
+```
+
+```{r}
+ggplot(data = yy, aes(y=rowname, x=variable, fill=value)) + 
+  geom_tile() +labs(x="Item",y="User",title="True Ratings") 
+```
+
+We want to design a system that can suggest stories to people based on a small
+number of ratings they provide. We suppose that each user has been asked to provide
+their rating for 10 items (chosen at random) giving us the following data
+
+```{r}
+# Subsample to get Observed data
+obs.ind  <-  matrix(0L,nrow=n.users,ncol=n.initial)
+for (i in 1:n.users){
+  obs.ind[i,] <- sample(n.items,n.initial)
+}
+obs.ratings <- matrix(0L,nrow=n.users,ncol=n.items)
+for(i in 1:n.users){
+  for (k in 1:n.initial){
+    obs.ratings[i,obs.ind[i,k]]<-true.ratings[i,obs.ind[i,k]]
+  }
+}
+```
+
+```{r include=FALSE}
+# Put NAs in for missing data and tidy for plotting
+obs.ratings2 <- matrix(nrow=n.users,ncol=n.items)
+for(i in 1:n.users){
+  for (k in 1:n.initial){
+    obs.ratings2[i,obs.ind[i,k]]<-true.ratings[i,obs.ind[i,k]]
+  }
+}
+yy     <- as.data.frame(obs.ratings2)
+names(yy) <- c(1:n.items)
+yy$rowname <- c(1:n.users)
+yy <- melt(yy,id="rowname")
+```
+
+```{r}
+# Visualise observed data
+ggplot(data = yy, aes(y=rowname, x=variable, fill=value)) + 
+  geom_tile() +scale_fill_continuous(na.value="white") +
+  labs(x="Item",y="User",title="Observed Ratings") 
+```
+
+```{r include=FALSE}
+#Convert to form required for recommender
+## Should be able to do this more efficiently with Matrix package.
+# Observed Data
+obs.list <- numeric(3)
+for(i in 1:n.users){
+  for(j in 1:n.items){
+    if(obs.ratings[i,j]!=0){
+      obs.list <- rbind(obs.list,c(i,j,obs.ratings[i,j]))
+    }
+  }
+}
+obs.list <- obs.list[-1,]
+obs.list <- data_memory(obs.list[,1],obs.list[,2],obs.list[,3])
+
+#Unobserved Data
+unobs.list <- numeric(3)
+for(i in 1:n.users){
+  for(j in 1:n.items){
+    if(obs.ratings[i,j]==0){
+      unobs.list <- rbind(unobs.list,c(i,j,0))
+    }
+  }
+}
+unobs.list <- unobs.list[-1,]
+unobs.list2 <- data_memory(unobs.list[,1],unobs.list[,2],unobs.list[,3])
+
+```
+
+We process our data in to a suitable format and then run it through a standard
+"matrix factorization" algorithm. This approach considers the similarities between
+the responses of different users and the responses for different items and
+makes predictions of the unobserved ratings. It does not receive any information
+on the covariates of users and items - only the rating data.
+
+```{r results='hide'}
+# Fit the matrix factorization model
+model <- Reco()                              # Initialise the model
+model$train(obs.list)                        # Train the model on observed data
+pred_file    <- tempfile()                   # Make predictions
+predictions  <- model$predict(unobs.list2, out_memory())
+unobs.list[,3] <- predictions                # Associate with unobserved pairs
+
+# Generate matrix of predicted values
+pred.ratings <- obs.ratings
+for(l in 1:nrow(unobs.list)){
+  pred.ratings[unobs.list[l,1],unobs.list[l,2]] <- unobs.list[l,3]
+}
+```
+
+The predictions of the matrix factorization model are shown below, alongside the
+true ratings matrix. We can see that the model's predictions are quite inaccurate.
+It seems not to have enough data to make strong predictions about most unknown
+values and chooses values around the mean ratings for most user and item pairs.
+Later, we will explore how this varies with changing amounts of initial data.
+```{r include=FALSE}
+xx     <- as.data.frame(pred.ratings)
+names(xx) <- c(1:n.items)
+xx$rowname <- c(1:n.users)
+xx <- melt(xx,id="rowname")
+
+yy     <- as.data.frame(true.ratings)
+names(yy) <- c(1:n.items)
+yy$rowname <- c(1:n.users)
+yy <- melt(yy,id="rowname")
+```
+
+```{r}
+#Visualise Predictions
+ggplot(data = xx, aes(y=rowname, x=variable, fill=value)) + 
+  geom_tile() +labs(x="Item",y="User",title="Predicted Ratings") 
+ggplot(data = yy, aes(y=rowname, x=variable, fill=value)) + 
+  geom_tile() +labs(x="Item",y="User",title="True Ratings") 
+
+
+```
+
+There are several ways to numerically evaluate the results. We may consider the
+root mean squared error (RMSE) of all the predictions:
+
+```{r}
+# Prediction accuracy - RMSE
+rmse(as.numeric(pred.ratings),as.numeric(true.ratings))
+
+```
+
+We could then compare this against the predictions from different models.
+Alternatively, we can look at the quality of the recommendations made by the
+model, which is arguably more important than its overall fit.
+
+Below, we consider recommending one item to each user. We choose the item with 
+the highest predicted rating, amongst those that they have not previously rated
+for each user. We then calculate the number of times that this recommendation
+is the item that they truly would have rated highest (among those their rating
+hasn't been revealed for) and the propotion of the total available rating score
+that is achieved by the recommendations made.
+```{r}
+# Recommendation accuracy
+pred.top1 <- numeric(n.users)
+val.pred.top1 <- numeric(n.users)
+for(i in 1:n.users){
+  pred.top1[i] <- which.max((pred.ratings-obs.ratings)[i,])
+  val.pred.top1[i] <- true.ratings[i,pred.top1[i]]
+}
+true.top1 <- numeric(n.users)
+val.true.top1 <- numeric(n.users)
+for(i in 1:n.users){
+  true.top1[i] <- which.max((true.ratings-obs.ratings)[i,])
+  val.true.top1[i] <- true.ratings[i,true.top1[i]]
+}
+
+# Recommendation accuracy - Number of spot on recommendations
+sum(pred.top1==true.top1)
+# Recommendation accuracy - Percentage of available rating score
+sum(val.pred.top1)/sum(val.true.top1)
+```
+
+We can compare these accuracy scores, against those for random recommendations,
+or recommending every user the most popular items that they haven't 
+themselves rated.
+
+```{r}
+random.rec <- numeric(n.users)
+val.random.rec <- numeric(n.users)
+for(i in 1:n.users){
+  random.rec[i] <- sample(c(1:n.items)[-obs.ind[i,]],1)
+  val.random.rec[i] <- true.ratings[i,random.rec[i]]
+}
+sum(random.rec==true.top1)
+sum(val.random.rec)/sum(val.true.top1)
+
+ave.obs.rate <- numeric(n.items)
+for(j in 1:n.items){
+  ave.obs.rate[j] <- mean(obs.ratings[,j][obs.ratings[,j]!=0])
+}
+ave.obs.rate <- rbind(ave.obs.rate,c(1:n.items))
+ave.obs.rate <- ave.obs.rate[,order(ave.obs.rate[1,])]
+
+popular.rec <- numeric(n.users)
+val.popular.rec <- numeric(n.users)
+for(i in 1:n.users){
+  j <- n.items
+  while(j %in% obs.ind[i,]){
+    j<-j-1
+  }
+  popular.rec[i] <- ave.obs.rate[2,j]
+  val.popular.rec[i] <- true.ratings[i,popular.rec[i]]
+}
+sum(popular.rec==true.top1)
+sum(val.popular.rec)/sum(val.true.top1)
+
+```
+
+This is only a single sample's results, we want to repeat this many times (and 
+with different parameters) to get an idea of average performance, and how it is 
+affected by the variability in the data/amount of observed data. 
+
+```{r include=FALSE}
+MHRec <- function(n.users,n.items,n.initial,sigrating=1,sigcovar=1,
+                  rmse=T,top1=T,rand=T,pop=T){
+  # Create users from four populations (AA, AB, BA, BB)
+user.covariates <- matrix(c(rep(1,n.users/2),rep(-1,n.users/2),
+                            rep(1,n.users/4),rep(-1,n.users/4),
+                            rep(1,n.users/4),rep(-1,n.users/4)),
+                            ncol=2,byrow=F)
+# Create items with two numeric characteristics
+item.covariates <- matrix(c(rnorm(2*n.items,0,sigcovar)),ncol=2,byrow=F)
+
+# Generate Gaussian ratings
+true.ratings <- matrix(nrow=n.users,ncol=n.items)
+for (i in 1:n.users){
+  for (j in 1:n.items){
+    true.ratings[i,j] <- rnorm(1,t(item.covariates[j,])%*%user.covariates[i,],
+                               sigrating)
+  }
+}
+# Transform to [0,1] scale
+true.ratings <- apply(true.ratings,2,sigmoid)
+# Subsample to get Observed data
+obs.ind  <-  matrix(0L,nrow=n.users,ncol=n.initial)
+for (i in 1:n.users){
+  obs.ind[i,] <- sample(n.items,n.initial)
+}
+obs.ratings <- matrix(0L,nrow=n.users,ncol=n.items)
+for(i in 1:n.users){
+  for (k in 1:n.initial){
+    obs.ratings[i,obs.ind[i,k]]<-true.ratings[i,obs.ind[i,k]]
+  }
+}
+#Convert to form required for recommender
+## Should be able to do this more efficiently with Matrix package.
+# Observed Data
+obs.list <- numeric(3)
+for(i in 1:n.users){
+  for(j in 1:n.items){
+    if(obs.ratings[i,j]!=0){
+      obs.list <- rbind(obs.list,c(i,j,obs.ratings[i,j]))
+    }
+  }
+}
+obs.list <- obs.list[-1,]
+obs.list <- data_memory(obs.list[,1],obs.list[,2],obs.list[,3])
+
+#Unobserved Data
+unobs.list <- numeric(3)
+for(i in 1:n.users){
+  for(j in 1:n.items){
+    if(obs.ratings[i,j]==0){
+      unobs.list <- rbind(unobs.list,c(i,j,0))
+    }
+  }
+}
+unobs.list <- unobs.list[-1,]
+unobs.list2 <- data_memory(unobs.list[,1],unobs.list[,2],unobs.list[,3])
+# Fit the matrix factorization model
+model <- Reco()                              # Initialise the model
+model$train(obs.list,opts=list(verbose=F))                        # Train the model on observed data
+pred_file    <- tempfile()                   # Make predictions
+predictions  <- model$predict(unobs.list2, out_memory())
+unobs.list[,3] <- predictions                # Associate with unobserved pairs
+
+# Generate matrix of predicted values
+pred.ratings <- obs.ratings
+for(l in 1:nrow(unobs.list)){
+  pred.ratings[unobs.list[l,1],unobs.list[l,2]] <- unobs.list[l,3]
+}
+
+
+Error <- rmse(as.numeric(pred.ratings),as.numeric(true.ratings))
+# Recommendation accuracy
+pred.top1 <- numeric(n.users)
+val.pred.top1 <- numeric(n.users)
+for(i in 1:n.users){
+  pred.top1[i] <- which.max((pred.ratings-obs.ratings)[i,])
+  val.pred.top1[i] <- true.ratings[i,pred.top1[i]]
+}
+true.top1 <- numeric(n.users)
+val.true.top1 <- numeric(n.users)
+for(i in 1:n.users){
+  true.top1[i] <- which.max((true.ratings-obs.ratings)[i,])
+  val.true.top1[i] <- true.ratings[i,true.top1[i]]
+}
+
+# Recommendation accuracy - Number of spot on recommendations
+top1.correct <- sum(pred.top1==true.top1)
+# Recommendation accuracy - Percentage of available rating score
+top1.prop <- sum(val.pred.top1)/sum(val.true.top1)
+random.rec <- numeric(n.users)
+val.random.rec <- numeric(n.users)
+for(i in 1:n.users){
+  random.rec[i] <- sample(c(1:n.items)[-obs.ind[i,]],1)
+  val.random.rec[i] <- true.ratings[i,random.rec[i]]
+}
+random.correct <- sum(random.rec==true.top1)
+random.prop <- sum(val.random.rec)/sum(val.true.top1)
+
+ave.obs.rate <- numeric(n.items)
+for(j in 1:n.items){
+  ave.obs.rate[j] <- mean(obs.ratings[,j][obs.ratings[,j]!=0])
+}
+ave.obs.rate <- rbind(ave.obs.rate,c(1:n.items))
+ave.obs.rate <- ave.obs.rate[,order(ave.obs.rate[1,])]
+
+popular.rec <- numeric(n.users)
+val.popular.rec <- numeric(n.users)
+for(i in 1:n.users){
+  j <- n.items
+  while(j %in% obs.ind[i,]){
+    j<-j-1
+  }
+  popular.rec[i] <- ave.obs.rate[2,j]
+  val.popular.rec[i] <- true.ratings[i,popular.rec[i]]
+}
+popular.correct <- sum(popular.rec==true.top1)
+popular.prop <- sum(val.popular.rec)/sum(val.true.top1)
+
+return(c(Error,top1.correct,top1.prop,
+         random.correct,random.prop,
+         popular.correct,popular.prop))
+}
+
+```
+We define a function which can be used to repeat these analyses,
+and implement it repeatedly for various parameter values.
+
+```{r include=FALSE}
+# Testing the effect of number of initial ratings
+test.reps <- 50
+num.tests <- 4
+test.params <- matrix(c(100,40,5,100,40,10,100,40,15,100,40,20),
+                      nrow=num.tests,ncol = 3,byrow=T)
+
+recdata <- matrix(nrow=test.reps*num.tests,ncol=10)
+for(l in 1:num.tests){
+  for(k in 1:test.reps){
+  recdata[(l-1)*test.reps+k,] <- c(MHRec(test.params[l,1],test.params[l,2],test.params[l,3]),
+                test.params[l,])
+  }
+}
+recdata <- as.data.frame(recdata)
+
+colnames(recdata) <- c("RMSEMF","NumCorrectMF","PropOracleMF",
+                              "NumCorrectRand", "PropOracleRand",
+                              "NumCorrectPopular", "PropOraclePopular",
+                    "NumUsers", "NumItems", "NumInitial")
+recdata$NumInitial <- as.factor(recdata$NumInitial)
+```
+We can then plot the distribution of the number of correct guesses for different
+numbers of initial ratings.
+```{r}
+ggplot(recdata,aes(x=NumInitial,y=NumCorrectMF))+ geom_boxplot()+
+  labs(x="Number of initial ratings",y="Number of spot on recommendations"
+       ,title="Number of 'spot on' recommendations - Matrix Factorization Recommender System", 
+subtitle="Count of recommendations that are the true top rated item for the user in question")
+ggplot(recdata,aes(x=NumInitial,y=NumCorrectRand))+ geom_boxplot()+
+  labs(x="Number of initial ratings",y="Number of spot on recommendations"
+       ,title="Number of 'spot on' recommendations - Matrix Factorization Recommender System", 
+subtitle="Count of recommendations that are the true top rated item for the user in question")
+ggplot(recdata,aes(x=NumInitial,y=NumCorrectPopular))+ geom_boxplot()+
+  labs(x="Number of initial ratings",y="Number of spot on recommendations"
+       ,title="Number of 'spot on' recommendations - Matrix Factorization Recommender System", 
+subtitle="Count of recommendations that are the true top rated item for the user in question")
+```
+
+```{r}
+ggplot(recdata,aes(x=NumInitial,y=PropOracleMF))+ geom_boxplot()+
+  labs(x="Number of initial ratings",y="Number of spot on recommendations"
+       ,title="Proportion of optimal rating - Matrix Factorization Recommender System", 
+subtitle="Count of recommendations that are the true top rated item for the user in question")
+ggplot(recdata,aes(x=NumInitial,y=PropOracleRand))+ geom_boxplot()+
+  labs(x="Number of initial ratings",y="Number of spot on recommendations"
+       ,title="Proportion of optimal rating - Random Recommender System", 
+subtitle="Count of recommendations that are the true top rated item for the user in question")
+ggplot(recdata,aes(x=NumInitial,y=PropOraclePopular))+ geom_boxplot()+
+  labs(x="Number of initial ratings",y="Number of spot on recommendations"
+       ,title="Proportion of optimal rating - Popularity Based Recommender System", 
+subtitle="Count of recommendations that are the true top rated item for the user in question")
+```
+
+
+

@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+
+<meta name="author" content="James A. Grant" />
+
+
+<title>Recommender System Example</title>
+
+<script src="MHRecSys_files/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="MHRecSys_files/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="MHRecSys_files/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="MHRecSys_files/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="MHRecSys_files/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="MHRecSys_files/navigation-1.1/tabsets.js"></script>
+<script src="MHRecSys_files/navigation-1.1/codefolding.js"></script>
+<link href="MHRecSys_files/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="MHRecSys_files/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+  height: auto;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("hide" === "show");
+});
+</script>
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div class="fluid-row" id="header">
+
+<div class="btn-group pull-right">
+<button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">Recommender System Example</h1>
+<h4 class="author">James A. Grant</h4>
+
+</div>
+
+
+<p>We first set a number of items, <span class="math inline">\(I\)</span>, and a number of users, <span class="math inline">\(U\)</span>, and decide how many items each user will have rated. The more items have been rated, the easier the unobserved ratings should be to infer.</p>
+<pre class="r"><code>n.items    &lt;- 40             # Number of items
+n.users    &lt;- 100            # Number of users
+n.initial  &lt;- 10             # Number of initial ratings (less than n.items)</code></pre>
+<p>We want to test how well a recommender system can detect some structure in the ratings of a population - i.e. how it can pick up similarities and patterns in the preferences of users. To assess this we will build a simple dataset that we know has some such structure in it, and therefore something that we may expect a reasonable method to be able to predict.</p>
+<p>Each user <span class="math inline">\(u=1,...,U\)</span> assigns a rating <span class="math inline">\(R_{ui}\)</span> to each item <span class="math inline">\(i=1,...,I\)</span>. The higher the rating, the more the user “likes” the item. We assume that ratings are generated from a linear model based on attributes of the users, and of the items.</p>
+<p>In particular, we assume that a user <span class="math inline">\(u\)</span> has two relevant binary attributes <span class="math inline">\(\beta_{u,1},\beta_{u,2}\)</span> which each are coded as 1 or -1. These could be things like whether they are over/under 25 years of age or their sex.</p>
+<p>Each item has two relevant attributes <span class="math inline">\(\gamma_{i,1}, \gamma_{i,2}\)</span> which take continuous values. These could be measures of things like how well a story captures the experiences of a particular sex or how relevant it is to younger people versus older people.</p>
+<p>We then assume that the rating user <span class="math inline">\(u\)</span> gives to item <span class="math inline">\(i\)</span> is determined by <span class="math inline">\(\beta_{u,1}\gamma_{i,1}+\beta_{u,2}\gamma_{i,2}\)</span> plus some Gaussian noise. We finally apply a transformation to these random values to get ratings on the [0,1] scale.</p>
+<p>The code below generates a set of ratings, based on equal representation of users across four groups (based on their <span class="math inline">\(\beta\)</span> covariates).</p>
+<pre class="r"><code># Create users from four populations (AA, AB, BA, BB)
+user.covariates &lt;- matrix(c(rep(1,n.users/2),rep(-1,n.users/2),
+                            rep(1,n.users/4),rep(-1,n.users/4),
+                            rep(1,n.users/4),rep(-1,n.users/4)),
+                            ncol=2,byrow=F)
+# Create items with two numeric characteristics
+item.covariates &lt;- matrix(c(rnorm(2*n.items,0,1)),ncol=2,byrow=F)
+
+sig        &lt;- 0.1              # Ratings variance
+# Generate Gaussian ratings
+true.ratings &lt;- matrix(nrow=n.users,ncol=n.items)
+for (i in 1:n.users){
+  for (j in 1:n.items){
+    true.ratings[i,j] &lt;- rnorm(1,t(item.covariates[j,])%*%user.covariates[i,],
+                               sig)
+  }
+}
+# Transform to [0,1] scale
+true.ratings &lt;- apply(true.ratings,2,sigmoid)</code></pre>
+<p>We plot these ratings below in a heatmap - here darker colours represent higher ratings. Items are on the horizontal axis and users are on the vertical axis. The similarities within the groups, and the differences across them are quite clear.</p>
+<pre class="r"><code>ggplot(data = yy, aes(y=rowname, x=variable, fill=value)) + 
+  geom_tile() +labs(x=&quot;Item&quot;,y=&quot;User&quot;,title=&quot;True Ratings&quot;) </code></pre>
+<p><img src="MHRecSys_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+<p>We want to design a system that can suggest stories to people based on a small number of ratings they provide. We suppose that each user has been asked to provide their rating for 10 items (chosen at random) giving us the following data</p>
+<pre class="r"><code># Subsample to get Observed data
+obs.ind  &lt;-  matrix(0L,nrow=n.users,ncol=n.initial)
+for (i in 1:n.users){
+  obs.ind[i,] &lt;- sample(n.items,n.initial)
+}
+obs.ratings &lt;- matrix(0L,nrow=n.users,ncol=n.items)
+for(i in 1:n.users){
+  for (k in 1:n.initial){
+    obs.ratings[i,obs.ind[i,k]]&lt;-true.ratings[i,obs.ind[i,k]]
+  }
+}</code></pre>
+<pre class="r"><code># Visualise observed data
+ggplot(data = yy, aes(y=rowname, x=variable, fill=value)) + 
+  geom_tile() +scale_fill_continuous(na.value=&quot;white&quot;) +
+  labs(x=&quot;Item&quot;,y=&quot;User&quot;,title=&quot;Observed Ratings&quot;) </code></pre>
+<p><img src="MHRecSys_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p>We process our data in to a suitable format and then run it through a standard “matrix factorization” algorithm. This approach considers the similarities between the responses of different users and the responses for different items and makes predictions of the unobserved ratings. It does not receive any information on the covariates of users and items - only the rating data.</p>
+<pre class="r"><code># Fit the matrix factorization model
+model &lt;- Reco()                              # Initialise the model
+model$train(obs.list)                        # Train the model on observed data
+pred_file    &lt;- tempfile()                   # Make predictions
+predictions  &lt;- model$predict(unobs.list2, out_memory())
+unobs.list[,3] &lt;- predictions                # Associate with unobserved pairs
+
+# Generate matrix of predicted values
+pred.ratings &lt;- obs.ratings
+for(l in 1:nrow(unobs.list)){
+  pred.ratings[unobs.list[l,1],unobs.list[l,2]] &lt;- unobs.list[l,3]
+}</code></pre>
+<p>The predictions of the matrix factorization model are shown below, alongside the true ratings matrix. We can see that the model’s predictions are quite inaccurate. It seems not to have enough data to make strong predictions about most unknown values and chooses values around the mean ratings for most user and item pairs. Later, we will explore how this varies with changing amounts of initial data.</p>
+<pre class="r"><code>#Visualise Predictions
+ggplot(data = xx, aes(y=rowname, x=variable, fill=value)) + 
+  geom_tile() +labs(x=&quot;Item&quot;,y=&quot;User&quot;,title=&quot;Predicted Ratings&quot;) </code></pre>
+<p><img src="MHRecSys_files/figure-html/unnamed-chunk-12-1.png" width="672" /></p>
+<pre class="r"><code>ggplot(data = yy, aes(y=rowname, x=variable, fill=value)) + 
+  geom_tile() +labs(x=&quot;Item&quot;,y=&quot;User&quot;,title=&quot;True Ratings&quot;) </code></pre>
+<p><img src="MHRecSys_files/figure-html/unnamed-chunk-12-2.png" width="672" /></p>
+<p>There are several ways to numerically evaluate the results. We may consider the root mean squared error (RMSE) of all the predictions:</p>
+<pre class="r"><code># Prediction accuracy - RMSE
+rmse(as.numeric(pred.ratings),as.numeric(true.ratings))</code></pre>
+<pre><code>## [1] 0.1983842</code></pre>
+<p>We could then compare this against the predictions from different models. Alternatively, we can look at the quality of the recommendations made by the model, which is arguably more important than its overall fit.</p>
+<p>Below, we consider recommending one item to each user. We choose the item with the highest predicted rating, amongst those that they have not previously rated for each user. We then calculate the number of times that this recommendation is the item that they truly would have rated highest (among those their rating hasn’t been revealed for) and the propotion of the total available rating score that is achieved by the recommendations made.</p>
+<pre class="r"><code># Recommendation accuracy
+pred.top1 &lt;- numeric(n.users)
+val.pred.top1 &lt;- numeric(n.users)
+for(i in 1:n.users){
+  pred.top1[i] &lt;- which.max((pred.ratings-obs.ratings)[i,])
+  val.pred.top1[i] &lt;- true.ratings[i,pred.top1[i]]
+}
+true.top1 &lt;- numeric(n.users)
+val.true.top1 &lt;- numeric(n.users)
+for(i in 1:n.users){
+  true.top1[i] &lt;- which.max((true.ratings-obs.ratings)[i,])
+  val.true.top1[i] &lt;- true.ratings[i,true.top1[i]]
+}
+
+# Recommendation accuracy - Number of spot on recommendations
+sum(pred.top1==true.top1)</code></pre>
+<pre><code>## [1] 29</code></pre>
+<pre class="r"><code># Recommendation accuracy - Percentage of available rating score
+sum(val.pred.top1)/sum(val.true.top1)</code></pre>
+<pre><code>## [1] 0.8570504</code></pre>
+<p>We can compare these accuracy scores, against those for random recommendations, or recommending every user the most popular items that they haven’t themselves rated.</p>
+<pre class="r"><code>random.rec &lt;- numeric(n.users)
+val.random.rec &lt;- numeric(n.users)
+for(i in 1:n.users){
+  random.rec[i] &lt;- sample(c(1:n.items)[-obs.ind[i,]],1)
+  val.random.rec[i] &lt;- true.ratings[i,random.rec[i]]
+}
+sum(random.rec==true.top1)</code></pre>
+<pre><code>## [1] 5</code></pre>
+<pre class="r"><code>sum(val.random.rec)/sum(val.true.top1)</code></pre>
+<pre><code>## [1] 0.5746809</code></pre>
+<pre class="r"><code>ave.obs.rate &lt;- numeric(n.items)
+for(j in 1:n.items){
+  ave.obs.rate[j] &lt;- mean(obs.ratings[,j][obs.ratings[,j]!=0])
+}
+ave.obs.rate &lt;- rbind(ave.obs.rate,c(1:n.items))
+ave.obs.rate &lt;- ave.obs.rate[,order(ave.obs.rate[1,])]
+
+popular.rec &lt;- numeric(n.users)
+val.popular.rec &lt;- numeric(n.users)
+for(i in 1:n.users){
+  j &lt;- n.items
+  while(j %in% obs.ind[i,]){
+    j&lt;-j-1
+  }
+  popular.rec[i] &lt;- ave.obs.rate[2,j]
+  val.popular.rec[i] &lt;- true.ratings[i,popular.rec[i]]
+}
+sum(popular.rec==true.top1)</code></pre>
+<pre><code>## [1] 4</code></pre>
+<pre class="r"><code>sum(val.popular.rec)/sum(val.true.top1)</code></pre>
+<pre><code>## [1] 0.5709436</code></pre>
+<p>This is only a single sample’s results, we want to repeat this many times (and with different parameters) to get an idea of average performance, and how it is affected by the variability in the data/amount of observed data.</p>
+<p>We define a function which can be used to repeat these analyses, and implement it repeatedly for various parameter values.</p>
+<p>We can then plot the distribution of the number of correct guesses for different numbers of initial ratings.</p>
+<pre class="r"><code>ggplot(recdata,aes(x=NumInitial,y=NumCorrectMF))+ geom_boxplot()+
+  labs(x=&quot;Number of initial ratings&quot;,y=&quot;Number of spot on recommendations&quot;
+       ,title=&quot;Number of &#39;spot on&#39; recommendations - Matrix Factorization Recommender System&quot;, 
+subtitle=&quot;Count of recommendations that are the true top rated item for the user in question&quot;)</code></pre>
+<p><img src="MHRecSys_files/figure-html/unnamed-chunk-18-1.png" width="672" /></p>
+<pre class="r"><code>ggplot(recdata,aes(x=NumInitial,y=NumCorrectRand))+ geom_boxplot()+
+  labs(x=&quot;Number of initial ratings&quot;,y=&quot;Number of spot on recommendations&quot;
+       ,title=&quot;Number of &#39;spot on&#39; recommendations - Matrix Factorization Recommender System&quot;, 
+subtitle=&quot;Count of recommendations that are the true top rated item for the user in question&quot;)</code></pre>
+<p><img src="MHRecSys_files/figure-html/unnamed-chunk-18-2.png" width="672" /></p>
+<pre class="r"><code>ggplot(recdata,aes(x=NumInitial,y=NumCorrectPopular))+ geom_boxplot()+
+  labs(x=&quot;Number of initial ratings&quot;,y=&quot;Number of spot on recommendations&quot;
+       ,title=&quot;Number of &#39;spot on&#39; recommendations - Matrix Factorization Recommender System&quot;, 
+subtitle=&quot;Count of recommendations that are the true top rated item for the user in question&quot;)</code></pre>
+<p><img src="MHRecSys_files/figure-html/unnamed-chunk-18-3.png" width="672" /></p>
+<pre class="r"><code>ggplot(recdata,aes(x=NumInitial,y=PropOracleMF))+ geom_boxplot()+
+  labs(x=&quot;Number of initial ratings&quot;,y=&quot;Number of spot on recommendations&quot;
+       ,title=&quot;Proportion of optimal rating - Matrix Factorization Recommender System&quot;, 
+subtitle=&quot;Count of recommendations that are the true top rated item for the user in question&quot;)</code></pre>
+<p><img src="MHRecSys_files/figure-html/unnamed-chunk-19-1.png" width="672" /></p>
+<pre class="r"><code>ggplot(recdata,aes(x=NumInitial,y=PropOracleRand))+ geom_boxplot()+
+  labs(x=&quot;Number of initial ratings&quot;,y=&quot;Number of spot on recommendations&quot;
+       ,title=&quot;Proportion of optimal rating - Random Recommender System&quot;, 
+subtitle=&quot;Count of recommendations that are the true top rated item for the user in question&quot;)</code></pre>
+<p><img src="MHRecSys_files/figure-html/unnamed-chunk-19-2.png" width="672" /></p>
+<pre class="r"><code>ggplot(recdata,aes(x=NumInitial,y=PropOraclePopular))+ geom_boxplot()+
+  labs(x=&quot;Number of initial ratings&quot;,y=&quot;Number of spot on recommendations&quot;
+       ,title=&quot;Proportion of optimal rating - Popularity Based Recommender System&quot;, 
+subtitle=&quot;Count of recommendations that are the true top rated item for the user in question&quot;)</code></pre>
+<p><img src="MHRecSys_files/figure-html/unnamed-chunk-19-3.png" width="672" /></p>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
