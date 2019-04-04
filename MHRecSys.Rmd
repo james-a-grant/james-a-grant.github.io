@@ -1,5 +1,5 @@
 ---
-title: "Recommender System Example"
+title: "Investigating a small-scale Recommender Systems for Stories"
 author: "James A. Grant"
 output:
   html_document:
@@ -23,10 +23,11 @@ sigmoid <- function(x){
 
 ```
 
+## 1. Set-up 
 We first set a number of items, $I$, and a number of users, $U$, 
 and decide how many items each user will have rated.
 The more items have been rated, the easier the unobserved ratings should be 
-to infer.
+to infer. In this particular example we suppose that each item is a story that can be recommended to a user, although the techniques we are using can be used across many applications.
 ```{r}
 n.items    <- 40             # Number of items
 n.users    <- 100            # Number of users
@@ -39,7 +40,7 @@ the preferences of users. To assess this we will build a simple dataset that we
 know has some such structure in it, and therefore something that we may expect a
 reasonable method to be able to predict.
 
-Each user $u=1,...,U$ assigns a rating $R_{ui}$ to each item $i=1,...,I$.
+Each user $u$ assigns a rating $R_{ui}$ to each item $i$.
 The higher the rating, the more the user "likes" the item. We assume that 
 ratings are generated from a linear model based on attributes of the users, 
 and of the items. 
@@ -54,10 +55,10 @@ continuous values. These could be measures of things like how well a story
 captures the experiences of a particular sex or how relevant it is to 
 younger people versus older people.
 
-We then assume that the rating user $u$ gives to item $i$ is determined by 
-$\beta_{u,1}\gamma_{i,1}+\beta_{u,2}\gamma_{i,2}$ plus some Gaussian noise. We 
-finally apply a transformation to these random values to get ratings on the [0,1]
-scale.
+We then assume that the ratings are normally distributed: $$R_{ui} \sim N(\beta_{u,1}\gamma_{i,1}+\beta_{u,2}\gamma_{i,2},\sigma^2)$$
+for some variance parameter $\sigma^2$.
+We finally apply a transformation to these random values to 
+get ratings on the [0,1] scale.
 
 The code below generates a set of ratings, based on equal representation of users
 across four groups (based on their $\beta$ covariates).
@@ -87,6 +88,7 @@ true.ratings <- apply(true.ratings,2,sigmoid)
 We plot these ratings below in a heatmap - here darker colours represent higher
 ratings. Items are on the horizontal axis and users are on the vertical axis. The
 similarities within the groups, and the differences across them are quite clear.
+For the rest of this example, these ratings will be treated as ground truth, and we assume that if a user is recommended an item, they faithfully report their true rating of the item. Our objective is to recommend items to users that have high ratings. 
 
 ```{r include=FALSE}
 # Visualise true ratings
@@ -102,8 +104,7 @@ ggplot(data = yy, aes(y=rowname, x=variable, fill=value)) +
 ```
 
 We want to design a system that can suggest stories to people based on a small
-number of ratings they provide. We suppose that each user has been asked to provide
-their rating for 10 items (chosen at random) giving us the following data
+number of ratings they provide. We suppose that each user has been asked to provide their rating for 10 items (chosen at random) giving us the following data - a subset of the full dataset, which recommender systems will not have access to.
 
 ```{r}
 # Subsample to get Observed data
@@ -117,9 +118,6 @@ for(i in 1:n.users){
     obs.ratings[i,obs.ind[i,k]]<-true.ratings[i,obs.ind[i,k]]
   }
 }
-```
-
-```{r include=FALSE}
 # Put NAs in for missing data and tidy for plotting
 obs.ratings2 <- matrix(nrow=n.users,ncol=n.items)
 for(i in 1:n.users){
@@ -131,16 +129,22 @@ yy     <- as.data.frame(obs.ratings2)
 names(yy) <- c(1:n.items)
 yy$rowname <- c(1:n.users)
 yy <- melt(yy,id="rowname")
-```
 
-```{r}
 # Visualise observed data
 ggplot(data = yy, aes(y=rowname, x=variable, fill=value)) + 
   geom_tile() +scale_fill_continuous(na.value="white") +
   labs(x="Item",y="User",title="Observed Ratings") 
 ```
 
-```{r include=FALSE}
+
+## 2. Recommender Model + Predictions
+We process our data in to a suitable format and then run it through a standard
+"matrix factorization" algorithm. This approach considers the similarities between
+the responses of different users and the responses for different items and
+makes predictions of the unobserved ratings. It does not receive any information
+on the covariates of users and items - only the rating data.
+
+```{r results='hide'}
 #Convert to form required for recommender
 ## Should be able to do this more efficiently with Matrix package.
 # Observed Data
@@ -167,15 +171,6 @@ for(i in 1:n.users){
 unobs.list <- unobs.list[-1,]
 unobs.list2 <- data_memory(unobs.list[,1],unobs.list[,2],unobs.list[,3])
 
-```
-
-We process our data in to a suitable format and then run it through a standard
-"matrix factorization" algorithm. This approach considers the similarities between
-the responses of different users and the responses for different items and
-makes predictions of the unobserved ratings. It does not receive any information
-on the covariates of users and items - only the rating data.
-
-```{r results='hide'}
 # Fit the matrix factorization model
 model <- Reco()                              # Initialise the model
 model$train(obs.list)                        # Train the model on observed data
@@ -217,6 +212,8 @@ ggplot(data = yy, aes(y=rowname, x=variable, fill=value)) +
 
 ```
 
+
+## 3. Evaluation
 There are several ways to numerically evaluate the results. We may consider the
 root mean squared error (RMSE) of all the predictions:
 
@@ -293,6 +290,8 @@ sum(val.popular.rec)/sum(val.true.top1)
 
 ```
 
+
+## 4. Evaluation over many repetitions
 This is only a single sample's results, we want to repeat this many times (and 
 with different parameters) to get an idea of average performance, and how it is 
 affected by the variability in the data/amount of observed data. 
