@@ -24,8 +24,11 @@ sigmoid <- function(x){
 ```
 
 ## 1. Set-up 
-We first set a number of items, $I$, and a number of users, $U$, 
-and decide how many items each user will have rated.
+We want to test how well a recommender system can detect some structure in the
+ratings of a population - i.e. how it can pick up similarities and patterns in 
+the preferences of users. To assess this we will build a simple dataset that we 
+know has some such structure in it, and therefore something that we may expect a
+reasonable method to be able to predict. We first set a number of items, $I$, and a number of users, $U$, and decide how many items each user will have rated.
 The more items have been rated, the easier the unobserved ratings should be 
 to infer. In this particular example we suppose that each item is a story that can be recommended to a user, although the techniques we are using can be used across many applications.
 ```{r}
@@ -33,12 +36,6 @@ n.items    <- 40             # Number of items
 n.users    <- 100            # Number of users
 n.initial  <- 10             # Number of initial ratings (less than n.items)
 ```
-
-We want to test how well a recommender system can detect some structure in the
-ratings of a population - i.e. how it can pick up similarities and patterns in 
-the preferences of users. To assess this we will build a simple dataset that we 
-know has some such structure in it, and therefore something that we may expect a
-reasonable method to be able to predict.
 
 Each user $u$ assigns a rating $R_{ui}$ to each item $i$.
 The higher the rating, the more the user "likes" the item. We assume that 
@@ -85,7 +82,7 @@ true.ratings <- apply(true.ratings,2,sigmoid)
 
 ```
 
-We plot these ratings below in a heatmap - here darker colours represent higher
+We plot these ratings below in a heatmap - here lighter colours represent higher
 ratings. Items are on the horizontal axis and users are on the vertical axis. The
 similarities within the groups, and the differences across them are quite clear.
 For the rest of this example, these ratings will be treated as ground truth, and we assume that if a user is recommended an item, they faithfully report their true rating of the item. Our objective is to recommend items to users that have high ratings. 
@@ -444,39 +441,23 @@ colnames(recdata) <- c("RMSEMF","NumCorrectMF","PropOracleMF",
                               "NumCorrectRand", "PropOracleRand",
                               "NumCorrectPopular", "PropOraclePopular",
                     "NumUsers", "NumItems", "NumInitial")
-recdata$NumInitial <- as.factor(recdata$NumInitial)
+
+recdata$ID <- c(1:(num.tests*test.reps))
 ```
 We can then plot the distribution of the number of correct guesses for different
 numbers of initial ratings.
 ```{r}
-ggplot(recdata,aes(x=NumInitial,y=NumCorrectMF))+ geom_boxplot()+
-  labs(x="Number of initial ratings",y="Number of spot on recommendations"
-       ,title="Number of 'spot on' recommendations - Matrix Factorization Recommender System", 
-subtitle="Count of recommendations that are the true top rated item for the user in question")
-ggplot(recdata,aes(x=NumInitial,y=NumCorrectRand))+ geom_boxplot()+
-  labs(x="Number of initial ratings",y="Number of spot on recommendations"
-       ,title="Number of 'spot on' recommendations - Matrix Factorization Recommender System", 
-subtitle="Count of recommendations that are the true top rated item for the user in question")
-ggplot(recdata,aes(x=NumInitial,y=NumCorrectPopular))+ geom_boxplot()+
-  labs(x="Number of initial ratings",y="Number of spot on recommendations"
-       ,title="Number of 'spot on' recommendations - Matrix Factorization Recommender System", 
-subtitle="Count of recommendations that are the true top rated item for the user in question")
+recdata.melt <- melt(recdata,id.vars=c("NumUsers","NumItems","NumInitial","ID"),measure.vars=c("RMSEMF",'NumCorrectMF','PropOracleMF',"NumCorrectRand",                        "PropOracleRand","NumCorrectPopular", "PropOraclePopular"))
+recdata.melt$NumInitial <- as.factor(recdata.melt$NumInitial)
+
+ggplot(recdata.melt[recdata.melt$variable%in%c("NumCorrectMF","NumCorrectPopular","NumCorrectRand"),]) +
+      geom_boxplot(aes(x=NumInitial, y=value,fill=variable))
+
+ggplot(recdata.melt[recdata.melt$variable%in%c("PropOracleMF","PropOraclePopular","PropOracleRand"),]) +
+      geom_boxplot(aes(x=NumInitial, y=value,fill=variable))
 ```
 
-```{r}
-ggplot(recdata,aes(x=NumInitial,y=PropOracleMF))+ geom_boxplot()+
-  labs(x="Number of initial ratings",y="Number of spot on recommendations"
-       ,title="Proportion of optimal rating - Matrix Factorization Recommender System", 
-subtitle="Count of recommendations that are the true top rated item for the user in question")
-ggplot(recdata,aes(x=NumInitial,y=PropOracleRand))+ geom_boxplot()+
-  labs(x="Number of initial ratings",y="Number of spot on recommendations"
-       ,title="Proportion of optimal rating - Random Recommender System", 
-subtitle="Count of recommendations that are the true top rated item for the user in question")
-ggplot(recdata,aes(x=NumInitial,y=PropOraclePopular))+ geom_boxplot()+
-  labs(x="Number of initial ratings",y="Number of spot on recommendations"
-       ,title="Proportion of optimal rating - Popularity Based Recommender System", 
-subtitle="Count of recommendations that are the true top rated item for the user in question")
-```
+
 
 
 

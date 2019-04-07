@@ -214,11 +214,10 @@ $(document).ready(function () {
 
 <div id="set-up" class="section level2">
 <h2>1. Set-up</h2>
-<p>We first set a number of items, <span class="math inline">\(I\)</span>, and a number of users, <span class="math inline">\(U\)</span>, and decide how many items each user will have rated. The more items have been rated, the easier the unobserved ratings should be to infer. In this particular example we suppose that each item is a story that can be recommended to a user, although the techniques we are using can be used across many applications.</p>
+<p>We want to test how well a recommender system can detect some structure in the ratings of a population - i.e. how it can pick up similarities and patterns in the preferences of users. To assess this we will build a simple dataset that we know has some such structure in it, and therefore something that we may expect a reasonable method to be able to predict. We first set a number of items, <span class="math inline">\(I\)</span>, and a number of users, <span class="math inline">\(U\)</span>, and decide how many items each user will have rated. The more items have been rated, the easier the unobserved ratings should be to infer. In this particular example we suppose that each item is a story that can be recommended to a user, although the techniques we are using can be used across many applications.</p>
 <pre class="r"><code>n.items    &lt;- 40             # Number of items
 n.users    &lt;- 100            # Number of users
 n.initial  &lt;- 10             # Number of initial ratings (less than n.items)</code></pre>
-<p>We want to test how well a recommender system can detect some structure in the ratings of a population - i.e. how it can pick up similarities and patterns in the preferences of users. To assess this we will build a simple dataset that we know has some such structure in it, and therefore something that we may expect a reasonable method to be able to predict.</p>
 <p>Each user <span class="math inline">\(u\)</span> assigns a rating <span class="math inline">\(R_{ui}\)</span> to each item <span class="math inline">\(i\)</span>. The higher the rating, the more the user “likes” the item. We assume that ratings are generated from a linear model based on attributes of the users, and of the items.</p>
 <p>In particular, we assume that a user <span class="math inline">\(u\)</span> has two relevant binary attributes <span class="math inline">\(\beta_{u,1},\beta_{u,2}\)</span> which each are coded as 1 or -1. These could be things like whether they are over/under 25 years of age or their sex.</p>
 <p>Each item has two relevant attributes <span class="math inline">\(\gamma_{i,1}, \gamma_{i,2}\)</span> which take continuous values. These could be measures of things like how well a story captures the experiences of a particular sex or how relevant it is to younger people versus older people.</p>
@@ -243,7 +242,7 @@ for (i in 1:n.users){
 }
 # Transform to [0,1] scale
 true.ratings &lt;- apply(true.ratings,2,sigmoid)</code></pre>
-<p>We plot these ratings below in a heatmap - here darker colours represent higher ratings. Items are on the horizontal axis and users are on the vertical axis. The similarities within the groups, and the differences across them are quite clear. For the rest of this example, these ratings will be treated as ground truth, and we assume that if a user is recommended an item, they faithfully report their true rating of the item. Our objective is to recommend items to users that have high ratings.</p>
+<p>We plot these ratings below in a heatmap - here lighter colours represent higher ratings. Items are on the horizontal axis and users are on the vertical axis. The similarities within the groups, and the differences across them are quite clear. For the rest of this example, these ratings will be treated as ground truth, and we assume that if a user is recommended an item, they faithfully report their true rating of the item. Our objective is to recommend items to users that have high ratings.</p>
 <pre class="r"><code>ggplot(data = yy, aes(y=rowname, x=variable, fill=value)) + 
   geom_tile() +labs(x=&quot;Item&quot;,y=&quot;User&quot;,title=&quot;True Ratings&quot;) </code></pre>
 <p><img src="MHRecSys_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
@@ -332,7 +331,7 @@ ggplot(data = xx, aes(y=rowname, x=variable, fill=value)) +
 <p>There are several ways to numerically evaluate the results. We may consider the root mean squared error (RMSE) of all the predictions:</p>
 <pre class="r"><code># Prediction accuracy - RMSE
 rmse(as.numeric(pred.ratings),as.numeric(true.ratings))</code></pre>
-<pre><code>## [1] 0.193662</code></pre>
+<pre><code>## [1] 0.205878</code></pre>
 <p>We could then compare this against the predictions from different models. Alternatively, we can look at the quality of the recommendations made by the model, which is arguably more important than its overall fit.</p>
 <p>Below, we consider recommending one item to each user. We choose the item with the highest predicted rating, amongst those that they have not previously rated for each user. We then calculate the number of times that this recommendation is the item that they truly would have rated highest (among those their rating hasn’t been revealed for) and the propotion of the total available rating score that is achieved by the recommendations made.</p>
 <pre class="r"><code># Recommendation accuracy
@@ -351,10 +350,10 @@ for(i in 1:n.users){
 
 # Recommendation accuracy - Number of spot on recommendations
 sum(pred.top1==true.top1)</code></pre>
-<pre><code>## [1] 13</code></pre>
+<pre><code>## [1] 31</code></pre>
 <pre class="r"><code># Recommendation accuracy - Percentage of available rating score
 sum(val.pred.top1)/sum(val.true.top1)</code></pre>
-<pre><code>## [1] 0.8783249</code></pre>
+<pre><code>## [1] 0.930521</code></pre>
 <p>We can compare these accuracy scores, against those for random recommendations, or recommending every user the most popular items that they haven’t themselves rated.</p>
 <pre class="r"><code>random.rec &lt;- numeric(n.users)
 val.random.rec &lt;- numeric(n.users)
@@ -363,9 +362,9 @@ for(i in 1:n.users){
   val.random.rec[i] &lt;- true.ratings[i,random.rec[i]]
 }
 sum(random.rec==true.top1)</code></pre>
-<pre><code>## [1] 4</code></pre>
+<pre><code>## [1] 2</code></pre>
 <pre class="r"><code>sum(val.random.rec)/sum(val.true.top1)</code></pre>
-<pre><code>## [1] 0.5497482</code></pre>
+<pre><code>## [1] 0.574682</code></pre>
 <pre class="r"><code>ave.obs.rate &lt;- numeric(n.items)
 for(j in 1:n.items){
   ave.obs.rate[j] &lt;- mean(obs.ratings[,j][obs.ratings[,j]!=0])
@@ -386,43 +385,22 @@ for(i in 1:n.users){
 sum(popular.rec==true.top1)</code></pre>
 <pre><code>## [1] 1</code></pre>
 <pre class="r"><code>sum(val.popular.rec)/sum(val.true.top1)</code></pre>
-<pre><code>## [1] 0.5628299</code></pre>
+<pre><code>## [1] 0.4857349</code></pre>
 </div>
 <div id="evaluation-over-many-repetitions" class="section level2">
 <h2>4. Evaluation over many repetitions</h2>
 <p>This is only a single sample’s results, we want to repeat this many times (and with different parameters) to get an idea of average performance, and how it is affected by the variability in the data/amount of observed data.</p>
 <p>We define a function which can be used to repeat these analyses, and implement it repeatedly for various parameter values.</p>
 <p>We can then plot the distribution of the number of correct guesses for different numbers of initial ratings.</p>
-<pre class="r"><code>ggplot(recdata,aes(x=NumInitial,y=NumCorrectMF))+ geom_boxplot()+
-  labs(x=&quot;Number of initial ratings&quot;,y=&quot;Number of spot on recommendations&quot;
-       ,title=&quot;Number of &#39;spot on&#39; recommendations - Matrix Factorization Recommender System&quot;, 
-subtitle=&quot;Count of recommendations that are the true top rated item for the user in question&quot;)</code></pre>
+<pre class="r"><code>recdata.melt &lt;- melt(recdata,id.vars=c(&quot;NumUsers&quot;,&quot;NumItems&quot;,&quot;NumInitial&quot;,&quot;ID&quot;),measure.vars=c(&quot;RMSEMF&quot;,&#39;NumCorrectMF&#39;,&#39;PropOracleMF&#39;,&quot;NumCorrectRand&quot;,                        &quot;PropOracleRand&quot;,&quot;NumCorrectPopular&quot;, &quot;PropOraclePopular&quot;))
+recdata.melt$NumInitial &lt;- as.factor(recdata.melt$NumInitial)
+
+ggplot(recdata.melt[recdata.melt$variable%in%c(&quot;NumCorrectMF&quot;,&quot;NumCorrectPopular&quot;,&quot;NumCorrectRand&quot;),]) +
+      geom_boxplot(aes(x=NumInitial, y=value,fill=variable))</code></pre>
 <p><img src="MHRecSys_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
-<pre class="r"><code>ggplot(recdata,aes(x=NumInitial,y=NumCorrectRand))+ geom_boxplot()+
-  labs(x=&quot;Number of initial ratings&quot;,y=&quot;Number of spot on recommendations&quot;
-       ,title=&quot;Number of &#39;spot on&#39; recommendations - Matrix Factorization Recommender System&quot;, 
-subtitle=&quot;Count of recommendations that are the true top rated item for the user in question&quot;)</code></pre>
+<pre class="r"><code>ggplot(recdata.melt[recdata.melt$variable%in%c(&quot;PropOracleMF&quot;,&quot;PropOraclePopular&quot;,&quot;PropOracleRand&quot;),]) +
+      geom_boxplot(aes(x=NumInitial, y=value,fill=variable))</code></pre>
 <p><img src="MHRecSys_files/figure-html/unnamed-chunk-15-2.png" width="672" /></p>
-<pre class="r"><code>ggplot(recdata,aes(x=NumInitial,y=NumCorrectPopular))+ geom_boxplot()+
-  labs(x=&quot;Number of initial ratings&quot;,y=&quot;Number of spot on recommendations&quot;
-       ,title=&quot;Number of &#39;spot on&#39; recommendations - Matrix Factorization Recommender System&quot;, 
-subtitle=&quot;Count of recommendations that are the true top rated item for the user in question&quot;)</code></pre>
-<p><img src="MHRecSys_files/figure-html/unnamed-chunk-15-3.png" width="672" /></p>
-<pre class="r"><code>ggplot(recdata,aes(x=NumInitial,y=PropOracleMF))+ geom_boxplot()+
-  labs(x=&quot;Number of initial ratings&quot;,y=&quot;Number of spot on recommendations&quot;
-       ,title=&quot;Proportion of optimal rating - Matrix Factorization Recommender System&quot;, 
-subtitle=&quot;Count of recommendations that are the true top rated item for the user in question&quot;)</code></pre>
-<p><img src="MHRecSys_files/figure-html/unnamed-chunk-16-1.png" width="672" /></p>
-<pre class="r"><code>ggplot(recdata,aes(x=NumInitial,y=PropOracleRand))+ geom_boxplot()+
-  labs(x=&quot;Number of initial ratings&quot;,y=&quot;Number of spot on recommendations&quot;
-       ,title=&quot;Proportion of optimal rating - Random Recommender System&quot;, 
-subtitle=&quot;Count of recommendations that are the true top rated item for the user in question&quot;)</code></pre>
-<p><img src="MHRecSys_files/figure-html/unnamed-chunk-16-2.png" width="672" /></p>
-<pre class="r"><code>ggplot(recdata,aes(x=NumInitial,y=PropOraclePopular))+ geom_boxplot()+
-  labs(x=&quot;Number of initial ratings&quot;,y=&quot;Number of spot on recommendations&quot;
-       ,title=&quot;Proportion of optimal rating - Popularity Based Recommender System&quot;, 
-subtitle=&quot;Count of recommendations that are the true top rated item for the user in question&quot;)</code></pre>
-<p><img src="MHRecSys_files/figure-html/unnamed-chunk-16-3.png" width="672" /></p>
 </div>
 
 
