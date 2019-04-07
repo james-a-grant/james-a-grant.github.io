@@ -331,7 +331,7 @@ ggplot(data = xx, aes(y=rowname, x=variable, fill=value)) +
 <p>There are several ways to numerically evaluate the results. We may consider the root mean squared error (RMSE) of all the predictions:</p>
 <pre class="r"><code># Prediction accuracy - RMSE
 rmse(as.numeric(pred.ratings),as.numeric(true.ratings))</code></pre>
-<pre><code>## [1] 0.205878</code></pre>
+<pre><code>## [1] 0.198306</code></pre>
 <p>We could then compare this against the predictions from different models. Alternatively, we can look at the quality of the recommendations made by the model, which is arguably more important than its overall fit.</p>
 <p>Below, we consider recommending one item to each user. We choose the item with the highest predicted rating, amongst those that they have not previously rated for each user. We then calculate the number of times that this recommendation is the item that they truly would have rated highest (among those their rating hasn’t been revealed for) and the propotion of the total available rating score that is achieved by the recommendations made.</p>
 <pre class="r"><code># Recommendation accuracy
@@ -350,10 +350,10 @@ for(i in 1:n.users){
 
 # Recommendation accuracy - Number of spot on recommendations
 sum(pred.top1==true.top1)</code></pre>
-<pre><code>## [1] 31</code></pre>
+<pre><code>## [1] 37</code></pre>
 <pre class="r"><code># Recommendation accuracy - Percentage of available rating score
 sum(val.pred.top1)/sum(val.true.top1)</code></pre>
-<pre><code>## [1] 0.930521</code></pre>
+<pre><code>## [1] 0.9347598</code></pre>
 <p>We can compare these accuracy scores, against those for random recommendations, or recommending every user the most popular items that they haven’t themselves rated.</p>
 <pre class="r"><code>random.rec &lt;- numeric(n.users)
 val.random.rec &lt;- numeric(n.users)
@@ -362,9 +362,9 @@ for(i in 1:n.users){
   val.random.rec[i] &lt;- true.ratings[i,random.rec[i]]
 }
 sum(random.rec==true.top1)</code></pre>
-<pre><code>## [1] 2</code></pre>
+<pre><code>## [1] 3</code></pre>
 <pre class="r"><code>sum(val.random.rec)/sum(val.true.top1)</code></pre>
-<pre><code>## [1] 0.574682</code></pre>
+<pre><code>## [1] 0.5271053</code></pre>
 <pre class="r"><code>ave.obs.rate &lt;- numeric(n.items)
 for(j in 1:n.items){
   ave.obs.rate[j] &lt;- mean(obs.ratings[,j][obs.ratings[,j]!=0])
@@ -383,9 +383,9 @@ for(i in 1:n.users){
   val.popular.rec[i] &lt;- true.ratings[i,popular.rec[i]]
 }
 sum(popular.rec==true.top1)</code></pre>
-<pre><code>## [1] 1</code></pre>
+<pre><code>## [1] 4</code></pre>
 <pre class="r"><code>sum(val.popular.rec)/sum(val.true.top1)</code></pre>
-<pre><code>## [1] 0.4857349</code></pre>
+<pre><code>## [1] 0.5291286</code></pre>
 </div>
 <div id="evaluation-over-many-repetitions" class="section level2">
 <h2>4. Evaluation over many repetitions</h2>

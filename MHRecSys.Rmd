@@ -457,7 +457,38 @@ ggplot(recdata.melt[recdata.melt$variable%in%c("PropOracleMF","PropOraclePopular
       geom_boxplot(aes(x=NumInitial, y=value,fill=variable))
 ```
 
+```{r include=FALSE}
+# Testing the effect of number of initial ratings
+test.reps <- 50
+num.tests <- 4
+test.params <- matrix(c(100,40,10,0.01,100,40,10,0.1,100,40,10,1,100,40,10,10),
+                      nrow=num.tests,ncol = 4,byrow=T)
 
+recdata <- matrix(nrow=test.reps*num.tests,ncol=11)
+for(l in 1:num.tests){
+  for(k in 1:test.reps){
+  recdata[(l-1)*test.reps+k,] <- c(MHRec(test.params[l,1],test.params[l,2],test.params[l,3],sigrating=test.params[l,4]),
+                test.params[l,])
+  }
+}
+recdata <- as.data.frame(recdata)
+
+colnames(recdata) <- c("RMSEMF","NumCorrectMF","PropOracleMF",
+                              "NumCorrectRand", "PropOracleRand",
+                              "NumCorrectPopular", "PropOraclePopular",
+                    "NumUsers", "NumItems", "NumInitial","RatingVariance")
+
+recdata$ID <- c(1:(num.tests*test.reps))
+
+recdata.melt <- melt(recdata,id.vars=c("NumUsers","NumItems","NumInitial","RatingVariance","ID"),measure.vars=c("RMSEMF",'NumCorrectMF','PropOracleMF',"NumCorrectRand",                        "PropOracleRand","NumCorrectPopular", "PropOraclePopular"))
+recdata.melt$RatingVariance <- as.factor(recdata.melt$RatingVariance)
+
+ggplot(recdata.melt[recdata.melt$variable%in%c("NumCorrectMF","NumCorrectPopular","NumCorrectRand"),]) +
+      geom_boxplot(aes(x=RatingVariance, y=value,fill=variable))
+
+ggplot(recdata.melt[recdata.melt$variable%in%c("PropOracleMF","PropOraclePopular","PropOracleRand"),]) +
+      geom_boxplot(aes(x=RatingVariance, y=value,fill=variable))
+```
 
 
 
