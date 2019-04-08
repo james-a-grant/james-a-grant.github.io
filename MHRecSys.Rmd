@@ -425,7 +425,7 @@ ggplot(recdata.melt[recdata.melt$variable%in%c("NumCorrectMF","NumCorrectPopular
       geom_boxplot(aes(x=RatingVariance, y=value,fill=variable)) + labs(x="Ratings Variance",y="Number of spot-on recommendations",title="Effect of ratings variance on number of spot-on recommendations",subtitle="100 users, 40 items, 10 initial ratings") + scale_fill_discrete(name = "Method", labels = c("Matrix Factorisation", "Random", "Popularity"))
 
 ggplot(recdata.melt[recdata.melt$variable%in%c("PropOracleMF","PropOraclePopular","PropOracleRand"),]) +
-      geom_boxplot(aes(x=RatingVariance, y=value,fill=variable)) + labs(x="Ratings Variance",y="Proportion of Oracle rating",title="Effect of number of initial ratings on proportion of oracle rating",subtitle="100 users, 40 items, 10 initial ratings") + scale_fill_discrete(name = "Method", labels = c("Matrix Factorisation", "Random", "Popularity"))
+      geom_boxplot(aes(x=RatingVariance, y=value,fill=variable)) + labs(x="Ratings Variance",y="Proportion of Oracle rating",title="Effect of ratings variance on proportion of oracle rating",subtitle="100 users, 40 items, 10 initial ratings") + scale_fill_discrete(name = "Method", labels = c("Matrix Factorisation", "Random", "Popularity"))
 ```
 
 
