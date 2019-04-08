@@ -352,6 +352,12 @@ ggplot(recdata.melt[recdata.melt$variable%in%c(&quot;NumCorrectMF&quot;,&quot;Nu
       geom_boxplot(aes(x=RatingVariance, y=value,fill=variable)) + labs(x=&quot;Ratings Variance&quot;,y=&quot;Proportion of Oracle rating&quot;,title=&quot;Effect of number of initial ratings on proportion of oracle rating&quot;,subtitle=&quot;100 users, 40 items, 10 initial ratings&quot;) + scale_fill_discrete(name = &quot;Method&quot;, labels = c(&quot;Matrix Factorisation&quot;, &quot;Random&quot;, &quot;Popularity&quot;))</code></pre>
 <p><img src="MHRecSys_files/figure-html/unnamed-chunk-14-2.png" width="672" /></p>
 </div>
+<div id="conclusions-caveats-next-steps" class="section level2">
+<h2>4. Conclusions, Caveats, Next Steps</h2>
+<p>From the graphs above, it is clear that (in this set-up) the matrix factorization approach has the potential to do quite substantially better than approaches such as randomisation and popularity based recommendations. Unsurprisingly we also see that more initial ratings helps the matrix factorization method, and the more variability there is in the ratings, the worse the method performs.</p>
+<p>These results are dependent, however, on the population ratings having a particular structure. In reality, user preferences are likely to be much more complex, and not have as strong and predictable relationships with user covariates as simulated here. Further exploration in to real data would help to assertain whether the improvement over simpler approaches would persist.</p>
+<p>We may also be interested in further evaluation metrics - the methods we have considered focus on the aggregate performance over many users, but we may be interested in the quality of recommendations for individuals, and prefer to consider metrics such as the number of times something very poor is recommended or the worst rating obtained. Furthermore, we may have side-information that can be exploited. If, for instance, one of the user or item covariates was revealed to us, we ought to be able to make better inference and predictions.</p>
+</div>
 
 
 
