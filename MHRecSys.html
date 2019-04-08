@@ -12,7 +12,7 @@
 <meta name="author" content="James A. Grant" />
 
 
-<title>Investigating a small-scale Recommender Systems for Stories</title>
+<title>Investigating a small-scale Recommender System</title>
 
 <script src="MHRecSys_files/jquery-1.11.3/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -206,7 +206,7 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Investigating a small-scale Recommender Systems for Stories</h1>
+<h1 class="title toc-ignore">Investigating a small-scale Recommender System</h1>
 <h4 class="author">James A. Grant</h4>
 
 </div>
@@ -328,79 +328,29 @@ ggplot(data = xx, aes(y=rowname, x=variable, fill=value)) +
 </div>
 <div id="evaluation" class="section level2">
 <h2>3. Evaluation</h2>
-<p>There are several ways to numerically evaluate the results. We may consider the root mean squared error (RMSE) of all the predictions:</p>
-<pre class="r"><code># Prediction accuracy - RMSE
-rmse(as.numeric(pred.ratings),as.numeric(true.ratings))</code></pre>
-<pre><code>## [1] 0.198306</code></pre>
-<p>We could then compare this against the predictions from different models. Alternatively, we can look at the quality of the recommendations made by the model, which is arguably more important than its overall fit.</p>
-<p>Below, we consider recommending one item to each user. We choose the item with the highest predicted rating, amongst those that they have not previously rated for each user. We then calculate the number of times that this recommendation is the item that they truly would have rated highest (among those their rating hasn’t been revealed for) and the propotion of the total available rating score that is achieved by the recommendations made.</p>
-<pre class="r"><code># Recommendation accuracy
-pred.top1 &lt;- numeric(n.users)
-val.pred.top1 &lt;- numeric(n.users)
-for(i in 1:n.users){
-  pred.top1[i] &lt;- which.max((pred.ratings-obs.ratings)[i,])
-  val.pred.top1[i] &lt;- true.ratings[i,pred.top1[i]]
-}
-true.top1 &lt;- numeric(n.users)
-val.true.top1 &lt;- numeric(n.users)
-for(i in 1:n.users){
-  true.top1[i] &lt;- which.max((true.ratings-obs.ratings)[i,])
-  val.true.top1[i] &lt;- true.ratings[i,true.top1[i]]
-}
-
-# Recommendation accuracy - Number of spot on recommendations
-sum(pred.top1==true.top1)</code></pre>
-<pre><code>## [1] 37</code></pre>
-<pre class="r"><code># Recommendation accuracy - Percentage of available rating score
-sum(val.pred.top1)/sum(val.true.top1)</code></pre>
-<pre><code>## [1] 0.9347598</code></pre>
-<p>We can compare these accuracy scores, against those for random recommendations, or recommending every user the most popular items that they haven’t themselves rated.</p>
-<pre class="r"><code>random.rec &lt;- numeric(n.users)
-val.random.rec &lt;- numeric(n.users)
-for(i in 1:n.users){
-  random.rec[i] &lt;- sample(c(1:n.items)[-obs.ind[i,]],1)
-  val.random.rec[i] &lt;- true.ratings[i,random.rec[i]]
-}
-sum(random.rec==true.top1)</code></pre>
-<pre><code>## [1] 3</code></pre>
-<pre class="r"><code>sum(val.random.rec)/sum(val.true.top1)</code></pre>
-<pre><code>## [1] 0.5271053</code></pre>
-<pre class="r"><code>ave.obs.rate &lt;- numeric(n.items)
-for(j in 1:n.items){
-  ave.obs.rate[j] &lt;- mean(obs.ratings[,j][obs.ratings[,j]!=0])
-}
-ave.obs.rate &lt;- rbind(ave.obs.rate,c(1:n.items))
-ave.obs.rate &lt;- ave.obs.rate[,order(ave.obs.rate[1,])]
-
-popular.rec &lt;- numeric(n.users)
-val.popular.rec &lt;- numeric(n.users)
-for(i in 1:n.users){
-  j &lt;- n.items
-  while(j %in% obs.ind[i,]){
-    j&lt;-j-1
-  }
-  popular.rec[i] &lt;- ave.obs.rate[2,j]
-  val.popular.rec[i] &lt;- true.ratings[i,popular.rec[i]]
-}
-sum(popular.rec==true.top1)</code></pre>
-<pre><code>## [1] 4</code></pre>
-<pre class="r"><code>sum(val.popular.rec)/sum(val.true.top1)</code></pre>
-<pre><code>## [1] 0.5291286</code></pre>
-</div>
-<div id="evaluation-over-many-repetitions" class="section level2">
-<h2>4. Evaluation over many repetitions</h2>
-<p>This is only a single sample’s results, we want to repeat this many times (and with different parameters) to get an idea of average performance, and how it is affected by the variability in the data/amount of observed data.</p>
-<p>We define a function which can be used to repeat these analyses, and implement it repeatedly for various parameter values.</p>
-<p>We can then plot the distribution of the number of correct guesses for different numbers of initial ratings.</p>
+<p>Beyond eyeballing the data, it is interesting to numerically evaluate the recommender system. One option is to measure the error in the estimates of the rating parameters, however we are ultimately interested in the quality of decisions (recommendations) made by the algorithm, so more interesting metrics are based on the accuracy of the decisions.</p>
+<p>Below, we consider recommending one item to each user. We choose the item with the highest predicted rating, amongst those that they have not previously rated for each user. We will compare this to approaches which choose an item to recommend randomly and those which recommend the most popular items, without considering the varying preferences across user groups.</p>
+<p>We consider two measures of performance:</p>
+<ul>
+<li><p>Number of “Spot-on” recommendations - the number of users for whom a method is able to recommend the exact best item for them from those remaining.</p></li>
+<li><p>Proportion of “Oracle” rating - the fraction of the best possible ratings achieved by a method (or the scores of a method divided by those of an “oracle” - a method that knew the ratings in advance and could offer everyone the best item for them).</p></li>
+</ul>
+<p>We repeat the inference many times on sampled data so that we can get an idea of the distribution of these measures, and also vary the number of initial recommednations and the variance in the ratings, to see how performance is affected.</p>
 <pre class="r"><code>recdata.melt &lt;- melt(recdata,id.vars=c(&quot;NumUsers&quot;,&quot;NumItems&quot;,&quot;NumInitial&quot;,&quot;ID&quot;),measure.vars=c(&quot;RMSEMF&quot;,&#39;NumCorrectMF&#39;,&#39;PropOracleMF&#39;,&quot;NumCorrectRand&quot;,                        &quot;PropOracleRand&quot;,&quot;NumCorrectPopular&quot;, &quot;PropOraclePopular&quot;))
 recdata.melt$NumInitial &lt;- as.factor(recdata.melt$NumInitial)
 
 ggplot(recdata.melt[recdata.melt$variable%in%c(&quot;NumCorrectMF&quot;,&quot;NumCorrectPopular&quot;,&quot;NumCorrectRand&quot;),]) +
-      geom_boxplot(aes(x=NumInitial, y=value,fill=variable))</code></pre>
-<p><img src="MHRecSys_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
+      geom_boxplot(aes(x=NumInitial, y=value,fill=variable)) + labs(x=&quot;Number of initial ratings&quot;,y=&quot;Number of spot-on recommendations&quot;,title=&quot;Effect of number of initial ratings on number of spot-on recommendations&quot;,subtitle=&quot;100 users, 40 items, ratings variance of 1&quot;) + scale_fill_discrete(name = &quot;Method&quot;, labels = c(&quot;Matrix Factorisation&quot;, &quot;Random&quot;, &quot;Popularity&quot;))</code></pre>
+<p><img src="MHRecSys_files/figure-html/unnamed-chunk-12-1.png" width="672" /></p>
 <pre class="r"><code>ggplot(recdata.melt[recdata.melt$variable%in%c(&quot;PropOracleMF&quot;,&quot;PropOraclePopular&quot;,&quot;PropOracleRand&quot;),]) +
-      geom_boxplot(aes(x=NumInitial, y=value,fill=variable))</code></pre>
-<p><img src="MHRecSys_files/figure-html/unnamed-chunk-15-2.png" width="672" /></p>
+      geom_boxplot(aes(x=NumInitial, y=value,fill=variable)) + labs(x=&quot;Number of initial ratings&quot;,y=&quot;Proportion of Oracle rating&quot;,title=&quot;Effect of number of initial ratings on proportion of oracle rating&quot;,subtitle=&quot;100 users, 40 items, ratings variance of 1&quot;) + scale_fill_discrete(name = &quot;Method&quot;, labels = c(&quot;Matrix Factorisation&quot;, &quot;Random&quot;, &quot;Popularity&quot;))</code></pre>
+<p><img src="MHRecSys_files/figure-html/unnamed-chunk-12-2.png" width="672" /></p>
+<pre class="r"><code>ggplot(recdata.melt[recdata.melt$variable%in%c(&quot;NumCorrectMF&quot;,&quot;NumCorrectPopular&quot;,&quot;NumCorrectRand&quot;),]) +
+      geom_boxplot(aes(x=RatingVariance, y=value,fill=variable)) + labs(x=&quot;Ratings Variance&quot;,y=&quot;Number of spot-on recommendations&quot;,title=&quot;Effect of ratings variance on number of spot-on recommendations&quot;,subtitle=&quot;100 users, 40 items, 10 initial ratings&quot;) + scale_fill_discrete(name = &quot;Method&quot;, labels = c(&quot;Matrix Factorisation&quot;, &quot;Random&quot;, &quot;Popularity&quot;))</code></pre>
+<p><img src="MHRecSys_files/figure-html/unnamed-chunk-14-1.png" width="672" /></p>
+<pre class="r"><code>ggplot(recdata.melt[recdata.melt$variable%in%c(&quot;PropOracleMF&quot;,&quot;PropOraclePopular&quot;,&quot;PropOracleRand&quot;),]) +
+      geom_boxplot(aes(x=RatingVariance, y=value,fill=variable)) + labs(x=&quot;Ratings Variance&quot;,y=&quot;Proportion of Oracle rating&quot;,title=&quot;Effect of number of initial ratings on proportion of oracle rating&quot;,subtitle=&quot;100 users, 40 items, 10 initial ratings&quot;) + scale_fill_discrete(name = &quot;Method&quot;, labels = c(&quot;Matrix Factorisation&quot;, &quot;Random&quot;, &quot;Popularity&quot;))</code></pre>
+<p><img src="MHRecSys_files/figure-html/unnamed-chunk-14-2.png" width="672" /></p>
 </div>
 
 
